@@ -1,33 +1,27 @@
-"""Command-line interface for reducelang.
-
-Provides a minimal entry point that prints the package version.
-"""
+"""Command-line interface for reducelang using Click command groups."""
 
 from __future__ import annotations
 
-import sys
 from typing import NoReturn
+import click
+from reducelang import __version__
 
-try:
-    from reducelang import __version__
-except Exception:  # pragma: no cover - fallback if import side-effects fail
-    __version__ = "0.0.0"
+
+@click.group()
+@click.version_option(version=__version__)
+def cli() -> None:
+    """reducelang: Shannon redundancy estimation for natural languages."""
+    pass
+
+
+# Register subcommands
+from reducelang.commands.prep import prep  # noqa: E402
+
+cli.add_command(prep)
 
 
 def main() -> NoReturn:
-    """CLI entry point.
-
-    - Prints the package version by default.
-    - Supports the conventional "--version" flag.
-    """
-
-    argv = sys.argv[1:]
-    if any(arg in ("--version", "-V", "-v") for arg in argv):
-        print(__version__)
-        raise SystemExit(0)
-
-    # Default behavior: print version and exit.
-    print(__version__)
-    raise SystemExit(0)
+    """Entry point for the CLI."""
+    cli()
 
 

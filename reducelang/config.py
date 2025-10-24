@@ -50,24 +50,45 @@ class Config:
 RANDOM_SEED: int = Config.RANDOM_SEED
 SUPPORTED_LANGUAGES: list[str] = ["en", "ro"]
 
-# Placeholder corpus URLs and hashes; to be filled in future phases.
-CORPUS_URLS: dict[str, dict[str, str]] = {
+# Corpus URLs and SHA256 placeholders.
+# SHA256 values can be computed on first download and stored here for
+# subsequent verification.
+CORPUS_URLS: dict[str, dict[str, str | None]] = {
     "en": {
-        "wikipedia": "https://dumps.wikimedia.org/placeholder/enwiki-latest-pages-articles.xml.bz2",
-        "brown": "https://example.org/corpora/brown.tar.gz",
-        "gutenberg": "https://example.org/corpora/gutenberg.zip",
+        "wikipedia": "https://dumps.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles.xml.bz2",
+        "brown": None,  # NLTK-managed
+        "text8": "http://mattmahoney.net/dc/text8.zip",
     },
     "ro": {
-        "wikipedia": "https://dumps.wikimedia.org/placeholder/rowiki-latest-pages-articles.xml.bz2",
-        "oscar": "https://example.org/corpora/oscar-ro.tar.gz",
-        "opus": "https://example.org/corpora/opus-ro.zip",
-        "europarl": "https://example.org/corpora/europarl-ro.tgz",
+        "wikipedia": "https://dumps.wikimedia.org/rowiki/latest/rowiki-latest-pages-articles.xml.bz2",
+        "opus": "https://object.pouta.csc.fi/OPUS-OpenSubtitles/v2024/mono/ro.txt.gz",
+        "europarl": "https://www.statmt.org/europarl/v7/ro-en.tgz",
+        "oscar": None,  # HuggingFace gated
     },
 }
 
-CORPUS_SHA256: dict[str, dict[str, str]] = {
-    "en": {},
-    "ro": {},
+CORPUS_SHA256: dict[str, dict[str, str | None]] = {
+    "en": {
+        # MD5 for text8 is known but SHA256 will be computed on first run
+        "text8": None,
+    },
+    "ro": {
+        # Compute on first download
+    },
+}
+
+CORPUS_LICENSES: dict[str, dict[str, str]] = {
+    "en": {
+        "wikipedia": "CC BY-SA 3.0",
+        "brown": "Public Domain",
+        "text8": "Public Domain",
+    },
+    "ro": {
+        "wikipedia": "CC BY-SA 3.0",
+        "opus": "CC0",
+        "europarl": "Public Domain",
+        "oscar": "CC0",
+    },
 }
 
 

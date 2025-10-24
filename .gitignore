@@ -46,6 +46,11 @@ results/
 .cache/
 output/
 
+# Corpus data (exclude raw and processed text; keep datacards)
+data/corpora/*/raw/
+data/corpora/*/processed/*.txt
+!data/corpora/*/processed/*_datacard.json
+
 # LaTeX
 *.aux
 *.log

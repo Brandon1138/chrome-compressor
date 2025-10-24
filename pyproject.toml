@@ -14,6 +14,10 @@ dependencies = [
   "click>=8.1",
   "jupyter>=1.0",
   "notebook>=7.0",
+  "requests>=2.31",
+  "tqdm>=4.66",
+  "wikiextractor>=3.0.7",
+  "nltk>=3.8",
 ]
 
 [project.optional-dependencies]

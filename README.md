@@ -17,6 +17,9 @@ References include Shannon (1951), Huffman (1952), and Cover & Thomas. We verify
 - Reproducible: deterministic seeds, `uv.lock`, SHA256-verified corpora
 - Dual interface: CLI (`reducelang`) and Jupyter notebooks
 - Academic output: LaTeX/PDF proofs, Markdown/MathJax site
+- Automated corpus download: Wikipedia (EN/RO), Brown, Gutenberg, text8, OPUS, Europarl
+- Format handlers: Wikipedia XML, NLTK, zip, gzip, tar.gz, parallel corpora
+- Data cards: JSON metadata for reproducibility (source, license, hashes, dates)
 
 ## Installation
 1. Ensure Python 3.12 and [`uv`](https://astral.sh) are installed.
@@ -42,10 +45,46 @@ References include Shannon (1951), Huffman (1952), and Cover & Thomas. We verify
   ```bash
   make notebook
   ```
-- (Future) Prepare corpora:
+- Prepare corpora:
   ```bash
   reducelang prep --lang en --corpus wikipedia
+  reducelang prep --lang ro --corpus all
+  make prep-en
   ```
+
+### User-provided corpora
+
+You can supply your own plain-text file and bypass the registry and downloader:
+
+```bash
+reducelang prep --lang en --corpus corpus --corpus-path /path/to/my.txt
+```
+
+This uses an inline CorpusSpec with `format` set to `plain_text` and processes
+the file using the `PlainTextExtractor` (UTF-8 read, normalized with the chosen
+alphabet, and written to the processed path). The data card will record the
+alphabet name and computed hashes.
+
+### Wikipedia snapshots
+
+For Wikipedia corpora, you can specify a snapshot:
+
+```bash
+reducelang prep --lang en --corpus wikipedia --snapshot 2025-10-01
+```
+
+Snapshot values accepted: `latest`, `YYYY-MM-DD`, or `YYYYMMDD`. The downloader
+constructs URLs like `https://dumps.wikimedia.org/enwiki/{yyyymmdd}/enwiki-{yyyymmdd}-pages-articles.xml.bz2`.
+
+### Gutenberg corpus
+
+You can select the NLTK Gutenberg corpus explicitly:
+
+```bash
+reducelang prep --lang en --corpus gutenberg
+```
+
+This requires `nltk` and the `gutenberg` dataset (`nltk.download('gutenberg')`).
 - (Future) Estimate entropy:
   ```bash
   reducelang estimate --model ppm --order 8 --lang en
@@ -66,7 +105,15 @@ chrome-compressor/
 │   ├── __init__.py
 │   ├── alphabet.py      # Alphabet definitions, log₂M
 │   ├── config.py        # Configuration constants
-│   ├── corpus/          # (Phase 2) Corpus download, preprocessing
+│   ├── corpus/          # Corpus download, extraction, preprocessing
+│   │   ├── registry.py      # Corpus specifications (URLs, formats, licenses)
+│   │   ├── downloader.py    # HTTP downloads with progress, resume, SHA256
+│   │   ├── extractors.py    # Format-specific text extraction
+│   │   ├── preprocessor.py  # Normalization pipeline
+│   │   └── datacard.py      # JSON metadata generation
+│   ├── commands/        # CLI subcommands
+│   │   └── prep.py          # Corpus preparation command
+│   └── utils.py         # Shared utilities (SHA256, file ops)
 │   ├── models/          # (Phase 3-4) Entropy models (n-gram, PPM, Huffman)
 │   ├── validation/      # (Phase 6) Bootstrap, sensitivity analysis
 │   └── proofs/          # (Phase 7) LaTeX/Markdown proof generation
@@ -92,7 +139,7 @@ chrome-compressor/
 - Python pinned to 3.12 via `.python-version` and `pyproject.toml`
 - Dependencies locked in `uv.lock`
 - Random seeds fixed in `reducelang/config.py`
-- Corpora verified via SHA256 (placeholders in this phase)
+- Corpora verified via SHA256 (first run computes and records)
 - Experiments runnable via `make` targets
 
 ## References
@@ -102,6 +149,10 @@ chrome-compressor/
 
 ## License
 MIT License. See [`LICENSE`](LICENSE).
+
+Note: `wikiextractor` is AGPL-3.0 licensed. If you distribute modified versions of
+`reducelang` that include `wikiextractor`, you must comply with AGPL-3.0 terms. The
+Wikipedia extractor attempts to call `wikiextractor` and falls back to `python -m wikiextractor`.
 
 ## Acknowledgments
 Inspired by Claude Shannon, David Huffman, and modern compression research.
