@@ -1,0 +1,63 @@
+[project]
+name = "reducelang"
+version = "0.1.0"
+description = "Shannon redundancy estimation for natural languages"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+license = { text = "MIT" }
+authors = [
+  { name = "Ishmael", email = "brandon.aron38@gmail.com", website: "mikoshi.studio" },
+]
+keywords = ["information-theory", "entropy", "shannon", "compression", "nlp"]
+dependencies = [
+  "numpy>=1.26",
+  "click>=8.1",
+  "jupyter>=1.0",
+  "notebook>=7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "pytest>=7.4",
+  "black>=24.0",
+  "ruff>=0.5.0",
+  "mypy>=1.8.0",
+]
+notebooks = [
+  "matplotlib>=3.8",
+  "seaborn>=0.13",
+  "pandas>=2.2",
+]
+docs = [
+  "mkdocs>=1.5",
+  "mkdocs-material>=9.5",
+]
+
+[project.scripts]
+reducelang = "reducelang.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+python-version = "3.12"
+dev-dependencies = []
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+select = ["E", "F", "I"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_return_any = true
+disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"
+addopts = "-v --tb=short"
+
+
