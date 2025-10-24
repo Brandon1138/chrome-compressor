@@ -21,6 +21,11 @@ __all__ = [
     # Utilities (lazy-imported via __getattr__)
     "compute_redundancy",
     "generate_comparison_table",
+    # Validation (eager imports; lightweight)
+    "block_bootstrap",
+    "compute_bootstrap_ci",
+    "run_sensitivity_analysis",
+    "run_ablation_study",
 ]
 
 __version__ = "0.1.0"
@@ -29,6 +34,12 @@ from typing import Any
 
 from reducelang.alphabet import Alphabet, ENGLISH_ALPHABET, ROMANIAN_ALPHABET
 from reducelang.config import Config, RANDOM_SEED
+from reducelang.validation import (
+    block_bootstrap,
+    compute_bootstrap_ci,
+    run_sensitivity_analysis,
+    run_ablation_study,
+)
 
 
 def __getattr__(name: str) -> Any:  # lazy attribute access to avoid heavy deps at import time

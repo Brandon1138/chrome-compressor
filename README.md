@@ -15,7 +15,9 @@ References include Shannon (1951), Huffman (1952), and Cover & Thomas. We verify
 - Arithmetic coding for codelength verification (validates entropy estimates)
 - Context depths up to 12 for capturing long-range dependencies (PPM)
 - Redundancy computation: R = 1 - H / log₂M, comparison tables across models
-- Statistical validation: block bootstrap CIs, corpus sensitivity, ablations
+- Bootstrap confidence intervals: block bootstrap (default 1000 resamples) for 95% CIs on bits/char and redundancy
+- Sensitivity analysis: ablation studies for alphabet variants (with/without space, punctuation, diacritics)
+- Statistical rigor: quantify uncertainty and test robustness of entropy estimates
 - Reproducible: deterministic seeds, `uv.lock`, SHA256-verified corpora
 - Dual interface: CLI (`reducelang`) and Jupyter notebooks
 - Academic output: LaTeX/PDF proofs, Markdown/MathJax site
@@ -139,7 +141,7 @@ chrome-compressor/
 │   │   └── datacard.py      # JSON metadata generation
 │   ├── commands/        # CLI subcommands
 │   │   ├── prep.py          # Corpus preparation command
-│   │   ├── estimate.py      # Entropy estimation (unigram, n-gram, PPM)
+│   │   ├── estimate.py      # Entropy estimation (now with --bootstrap, --sensitivity)
 │   │   └── huffman.py       # Huffman coding and comparison
 │   └── utils.py         # Shared utilities (SHA256, file ops)
 │   ├── models/          # Entropy estimation models
@@ -149,7 +151,9 @@ chrome-compressor/
 │   │   └── ppm.py           # Prediction by Partial Matching
 │   ├── coding/              # Arithmetic coding for verification
 │   │   └── arithmetic.py    # Range coder, codelength computation
-│   ├── validation/      # (Phase 6) Bootstrap, sensitivity analysis
+│   ├── validation/      # Statistical validation
+│   │   ├── bootstrap.py     # Block bootstrap for confidence intervals
+│   │   └── sensitivity.py   # Ablation studies for alphabet variants
 │   └── proofs/          # (Phase 7) LaTeX/Markdown proof generation
 ├── notebooks/           # Jupyter exploration
 ├── tests/               # Pytest unit tests
@@ -211,6 +215,38 @@ results/
     │           └── ngram_order3.pkl
 ```
 
+## Bootstrap Confidence Intervals
+
+Purpose: Quantify uncertainty in entropy estimates due to finite test set size. We use block bootstrap (1–2k character blocks) to preserve temporal dependencies, with 1000 resamples by default and 95% percentile CIs.
+
+Usage:
+
+```bash
+reducelang estimate --model ppm --order 8 --lang en --corpus text8 --bootstrap
+```
+
+Results JSON includes `bootstrap` with `mean_bpc`, `ci_lower_bpc`, `ci_upper_bpc`, and `redundancy_ci`. Typical CI width for ~20k test chars: ±0.02–0.05 bpc.
+
+## Sensitivity Analysis
+
+Purpose: Test robustness of entropy estimates to preprocessing choices (alphabet definition). For each ablation, we create an alphabet variant, re-normalize train/test, retrain, and report deltas.
+
+Ablations:
+- `no_space`: Remove space from alphabet
+- `no_diacritics`: Remove diacritics (Romanian)
+- `with_punctuation`: Include punctuation symbols
+
+Usage:
+
+```bash
+reducelang estimate --model ppm --order 8 --lang ro --corpus opus --sensitivity --ablations no_diacritics,no_space
+```
+
+Interpretation:
+- Positive ΔH means worse compression; negative ΔR means less redundancy
+- For Romanian, removing diacritics typically increases entropy by ~0.1–0.3 bpc
+- Removing space often increases entropy by ~0.5–1.0 bpc
+
 ## Examples
 ```bash
 # 1. Download and preprocess corpus
@@ -232,6 +268,9 @@ reducelang huffman --lang en --corpus text8 --compare
 
 # 6. View results
 cat results/entropy/en/text8/2025-10-01/ppm_order8.json
+
+# 7. Validation via Makefile
+make validate-all
 ```
 
 ## Redundancy and Comparison Tables
@@ -245,6 +284,16 @@ cat results/entropy/en/text8/2025-10-01/ppm_order8.json
 ### Expected Results (illustrative)
 - English (M=27, log₂M ≈ 4.755): Huffman ≈ 4.2 bpc (~12%), N-gram(5) ≈ 2.5 bpc (~47%), PPM(8) ≈ 1.5 bpc (~68%).
 - Romanian (M=32, log₂M = 5.000): Huffman ≈ 4.3 bpc (~14%), N-gram(5) ≈ 2.7 bpc (~46%), PPM(8) ≈ 1.6 bpc (~68%).
+
+## References
+1. Shannon, C. E. (1951). Prediction and entropy of printed English.
+2. Huffman, D. A. (1952). A method for the construction of minimum-redundancy codes.
+3. Cover, T. M., & Thomas, J. A. Elements of Information Theory.
+4. Cleary, J. G., & Witten, I. H. (1984). Data compression using adaptive coding and partial string matching.
+5. Moffat, A. (1990). Implementing the PPM data compression scheme.
+6. Teahan, W. J., & Cleary, J. G. (1997). The entropy of English using PPM-based models.
+7. Efron, B., & Tibshirani, R. J. (1993). An Introduction to the Bootstrap.
+8. Berg-Kirkpatrick, T., Burkett, D., & Klein, D. (2012). An Empirical Investigation of Statistical Significance in NLP.
 
 ## References
 1. Shannon, C. E. (1951). Prediction and entropy of printed English.

@@ -1,7 +1,7 @@
 # Makefile for reducelang: Shannon redundancy estimation.
 # Run 'make setup' to initialize the project.
 
-.PHONY: setup lock test lint format typecheck clean notebook english romanian paper site prep-en prep-ro prep-all clean-data estimate-en-unigram estimate-en-ngram estimate-ro-unigram estimate-ro-ngram estimate-all clean-results estimate-en-ppm estimate-ro-ppm estimate-ppm-all verify-ppm huffman-en huffman-ro huffman-all compare-en compare-ro compare-all
+.PHONY: setup lock test lint format typecheck clean notebook english romanian paper site prep-en prep-ro prep-all clean-data estimate-en-unigram estimate-en-ngram estimate-ro-unigram estimate-ro-ngram estimate-all clean-results estimate-en-ppm estimate-ro-ppm estimate-ppm-all verify-ppm huffman-en huffman-ro huffman-all compare-en compare-ro compare-all validate-en validate-ro validate-all bootstrap-en bootstrap-ro sensitivity-en sensitivity-ro
 
 setup:
 	uv sync --locked
@@ -129,4 +129,31 @@ compare-ro:
 
 # compare-all: Generate comparison tables for both languages
 compare-all: compare-en compare-ro
+
+# validate-en: Run PPM with bootstrap CI and sensitivity analysis for English
+validate-en:
+	uv run reducelang estimate --model ppm --order 8 --lang en --corpus text8 --bootstrap --sensitivity
+
+# validate-ro: Run PPM with bootstrap CI and sensitivity analysis for Romanian
+validate-ro:
+	uv run reducelang estimate --model ppm --order 8 --lang ro --corpus opus --bootstrap --sensitivity --ablations no_diacritics,no_space
+
+# validate-all: Run validation on both languages
+validate-all: validate-en validate-ro
+
+# bootstrap-en: Compute bootstrap CIs for English
+bootstrap-en:
+	uv run reducelang estimate --model ppm --order 8 --lang en --corpus text8 --bootstrap
+
+# bootstrap-ro: Compute bootstrap CIs for Romanian
+bootstrap-ro:
+	uv run reducelang estimate --model ppm --order 8 --lang ro --corpus opus --bootstrap
+
+# sensitivity-en: Run sensitivity only for English
+sensitivity-en:
+	uv run reducelang estimate --model ppm --order 8 --lang en --corpus text8 --sensitivity
+
+# sensitivity-ro: Run sensitivity only for Romanian
+sensitivity-ro:
+	uv run reducelang estimate --model ppm --order 8 --lang ro --corpus opus --sensitivity --ablations no_diacritics,no_space
 

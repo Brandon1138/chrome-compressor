@@ -408,6 +408,321 @@ def test_estimate_skip_existing(cli_runner, mock_corpus, monkeypatch):
     assert "9.999" in result.output
 
 
+def test_estimate_with_bootstrap(cli_runner, mock_corpus, monkeypatch):
+    """CLI with --bootstrap attaches bootstrap results to JSON and prints notice."""
+
+    base = mock_corpus["base"]
+    monkeypatch.setattr(Config, "DEFAULT_CORPUS_DIR", base / "data" / "corpora", raising=False)
+    monkeypatch.setattr(Config, "RESULTS_DIR", base / "results", raising=False)
+
+    with patch("reducelang.models.unigram.UnigramModel.fit", return_value=None), patch(
+        "reducelang.models.unigram.UnigramModel.evaluate", return_value=1.0
+    ), patch("reducelang.validation.bootstrap.block_bootstrap", return_value={
+        "mean_bpc": 1.0,
+        "std_bpc": 0.1,
+        "ci_lower_bpc": 0.9,
+        "ci_upper_bpc": 1.1,
+        "n_resamples": 10,
+        "block_size": 2000,
+        "confidence_level": 0.95,
+    }):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "estimate",
+                "--model",
+                "unigram",
+                "--lang",
+                mock_corpus["lang"],
+                "--corpus",
+                mock_corpus["corpus"],
+                "--snapshot",
+                mock_corpus["snapshot"],
+                "--bootstrap",
+            ],
+            catch_exceptions=False,
+        )
+    assert result.exit_code == 0, result.output
+    assert "Computing bootstrap confidence intervals" in result.output
+    out_file = base / "results" / "entropy" / mock_corpus["lang"] / mock_corpus["corpus"] / mock_corpus["snapshot"] / "unigram_order1.json"
+    data = json.loads(out_file.read_text(encoding="utf-8"))
+    assert "bootstrap" in data and "mean_bpc" in data["bootstrap"]
+
+
+def test_estimate_with_sensitivity(cli_runner, mock_corpus, monkeypatch):
+    """CLI with --sensitivity attaches sensitivity results to JSON."""
+
+    base = mock_corpus["base"]
+    monkeypatch.setattr(Config, "DEFAULT_CORPUS_DIR", base / "data" / "corpora", raising=False)
+    monkeypatch.setattr(Config, "RESULTS_DIR", base / "results", raising=False)
+
+    with patch("reducelang.models.unigram.UnigramModel.fit", return_value=None), patch(
+        "reducelang.models.unigram.UnigramModel.evaluate", return_value=1.0
+    ), patch("reducelang.validation.sensitivity.run_ablation_study", return_value={
+        "baseline": {"bits_per_char": 1.0, "redundancy": 0.5, "alphabet_name": "English-27", "alphabet_size": 27, "log2_alphabet_size": 4.755},
+        "variants": [
+            {"name": "no_space", "bits_per_char": 1.2, "redundancy": 0.45, "delta_bpc": 0.2, "delta_redundancy": -0.05, "alphabet_name": "English-26", "alphabet_size": 26, "log2_alphabet_size": 4.700},
+        ],
+    }):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "estimate",
+                "--model",
+                "unigram",
+                "--lang",
+                mock_corpus["lang"],
+                "--corpus",
+                mock_corpus["corpus"],
+                "--snapshot",
+                mock_corpus["snapshot"],
+                "--sensitivity",
+            ],
+            catch_exceptions=False,
+        )
+    assert result.exit_code == 0, result.output
+    assert "Running sensitivity analysis" in result.output
+    out_file = base / "results" / "entropy" / mock_corpus["lang"] / mock_corpus["corpus"] / mock_corpus["snapshot"] / "unigram_order1.json"
+    data = json.loads(out_file.read_text(encoding="utf-8"))
+    assert "sensitivity" in data and "baseline" in data["sensitivity"]
+
+
+def test_estimate_with_both_flags(cli_runner, mock_corpus, monkeypatch):
+    base = mock_corpus["base"]
+    monkeypatch.setattr(Config, "DEFAULT_CORPUS_DIR", base / "data" / "corpora", raising=False)
+    monkeypatch.setattr(Config, "RESULTS_DIR", base / "results", raising=False)
+    with patch("reducelang.models.unigram.UnigramModel.fit", return_value=None), patch(
+        "reducelang.models.unigram.UnigramModel.evaluate", return_value=1.0
+    ), patch("reducelang.validation.bootstrap.block_bootstrap", return_value={
+        "mean_bpc": 1.0,
+        "std_bpc": 0.1,
+        "ci_lower_bpc": 0.9,
+        "ci_upper_bpc": 1.1,
+        "n_resamples": 10,
+        "block_size": 2000,
+        "confidence_level": 0.95,
+    }), patch("reducelang.validation.sensitivity.run_ablation_study", return_value={
+        "baseline": {"bits_per_char": 1.0, "redundancy": 0.5, "alphabet_name": "English-27", "alphabet_size": 27, "log2_alphabet_size": 4.755},
+        "variants": [],
+    }):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "estimate",
+                "--model",
+                "unigram",
+                "--lang",
+                mock_corpus["lang"],
+                "--corpus",
+                mock_corpus["corpus"],
+                "--snapshot",
+                mock_corpus["snapshot"],
+                "--bootstrap",
+                "--sensitivity",
+            ],
+            catch_exceptions=False,
+        )
+    assert result.exit_code == 0
+    assert "Warning: Both --bootstrap and --sensitivity" in result.output
+    out_file = base / "results" / "entropy" / mock_corpus["lang"] / mock_corpus["corpus"] / mock_corpus["snapshot"] / "unigram_order1.json"
+    data = json.loads(out_file.read_text(encoding="utf-8"))
+    assert "bootstrap" in data and "sensitivity" in data
+
+
+def test_estimate_with_ablations(cli_runner, mock_corpus, monkeypatch):
+    base = mock_corpus["base"]
+    monkeypatch.setattr(Config, "DEFAULT_CORPUS_DIR", base / "data" / "corpora", raising=False)
+    monkeypatch.setattr(Config, "RESULTS_DIR", base / "results", raising=False)
+    with patch("reducelang.models.unigram.UnigramModel.fit", return_value=None), patch(
+        "reducelang.models.unigram.UnigramModel.evaluate", return_value=1.0
+    ), patch("reducelang.validation.sensitivity.run_ablation_study", return_value={
+        "baseline": {"bits_per_char": 1.0, "redundancy": 0.5, "alphabet_name": "English-27", "alphabet_size": 27, "log2_alphabet_size": 4.755},
+        "variants": [
+            {"name": "no_space", "bits_per_char": 1.2, "redundancy": 0.45, "delta_bpc": 0.2, "delta_redundancy": -0.05, "alphabet_name": "English-26", "alphabet_size": 26, "log2_alphabet_size": 4.700},
+            {"name": "with_punctuation", "bits_per_char": 0.9, "redundancy": 0.55, "delta_bpc": -0.1, "delta_redundancy": 0.05, "alphabet_name": "English-??", "alphabet_size": 40, "log2_alphabet_size": 5.322},
+        ],
+    }):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "estimate",
+                "--model",
+                "unigram",
+                "--lang",
+                mock_corpus["lang"],
+                "--corpus",
+                mock_corpus["corpus"],
+                "--snapshot",
+                mock_corpus["snapshot"],
+                "--sensitivity",
+                "--ablations",
+                "no_space,with_punctuation",
+            ],
+            catch_exceptions=False,
+        )
+    assert result.exit_code == 0
+    out_file = base / "results" / "entropy" / mock_corpus["lang"] / mock_corpus["corpus"] / mock_corpus["snapshot"] / "unigram_order1.json"
+    data = json.loads(out_file.read_text(encoding="utf-8"))
+    assert len(data.get("sensitivity", {}).get("variants", [])) == 2
+
+
+def test_estimate_bootstrap_ci_structure(cli_runner, mock_corpus, monkeypatch):
+    base = mock_corpus["base"]
+    monkeypatch.setattr(Config, "DEFAULT_CORPUS_DIR", base / "data" / "corpora", raising=False)
+    monkeypatch.setattr(Config, "RESULTS_DIR", base / "results", raising=False)
+    with patch("reducelang.models.unigram.UnigramModel.fit", return_value=None), patch(
+        "reducelang.models.unigram.UnigramModel.evaluate", return_value=1.0
+    ), patch("reducelang.validation.bootstrap.block_bootstrap", return_value={
+        "mean_bpc": 1.0,
+        "std_bpc": 0.1,
+        "ci_lower_bpc": 0.9,
+        "ci_upper_bpc": 1.1,
+        "n_resamples": 10,
+        "block_size": 2000,
+        "confidence_level": 0.95,
+    }):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "estimate",
+                "--model",
+                "unigram",
+                "--lang",
+                mock_corpus["lang"],
+                "--corpus",
+                mock_corpus["corpus"],
+                "--snapshot",
+                mock_corpus["snapshot"],
+                "--bootstrap",
+            ],
+            catch_exceptions=False,
+        )
+    assert result.exit_code == 0
+    out_file = base / "results" / "entropy" / mock_corpus["lang"] / mock_corpus["corpus"] / mock_corpus["snapshot"] / "unigram_order1.json"
+    data = json.loads(out_file.read_text(encoding="utf-8"))
+    b = data.get("bootstrap", {})
+    for k in ["mean_bpc", "ci_lower_bpc", "ci_upper_bpc"]:
+        assert k in b
+
+
+def test_estimate_sensitivity_structure(cli_runner, mock_corpus, monkeypatch):
+    base = mock_corpus["base"]
+    monkeypatch.setattr(Config, "DEFAULT_CORPUS_DIR", base / "data" / "corpora", raising=False)
+    monkeypatch.setattr(Config, "RESULTS_DIR", base / "results", raising=False)
+    with patch("reducelang.models.unigram.UnigramModel.fit", return_value=None), patch(
+        "reducelang.models.unigram.UnigramModel.evaluate", return_value=1.0
+    ), patch("reducelang.validation.sensitivity.run_ablation_study", return_value={
+        "baseline": {"bits_per_char": 1.0, "redundancy": 0.5, "alphabet_name": "English-27", "alphabet_size": 27, "log2_alphabet_size": 4.755},
+        "variants": [],
+    }):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "estimate",
+                "--model",
+                "unigram",
+                "--lang",
+                mock_corpus["lang"],
+                "--corpus",
+                mock_corpus["corpus"],
+                "--snapshot",
+                mock_corpus["snapshot"],
+                "--sensitivity",
+            ],
+            catch_exceptions=False,
+        )
+    assert result.exit_code == 0
+    out_file = base / "results" / "entropy" / mock_corpus["lang"] / mock_corpus["corpus"] / mock_corpus["snapshot"] / "unigram_order1.json"
+    data = json.loads(out_file.read_text(encoding="utf-8"))
+    s = data.get("sensitivity", {})
+    assert "baseline" in s and "variants" in s
+
+
+def test_estimate_bootstrap_failure_graceful(cli_runner, mock_corpus, monkeypatch):
+    base = mock_corpus["base"]
+    monkeypatch.setattr(Config, "DEFAULT_CORPUS_DIR", base / "data" / "corpora", raising=False)
+    monkeypatch.setattr(Config, "RESULTS_DIR", base / "results", raising=False)
+    with patch("reducelang.models.unigram.UnigramModel.fit", return_value=None), patch(
+        "reducelang.models.unigram.UnigramModel.evaluate", return_value=1.0
+    ), patch("reducelang.validation.bootstrap.block_bootstrap", side_effect=RuntimeError("boom")):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "estimate",
+                "--model",
+                "unigram",
+                "--lang",
+                mock_corpus["lang"],
+                "--corpus",
+                mock_corpus["corpus"],
+                "--snapshot",
+                mock_corpus["snapshot"],
+                "--bootstrap",
+            ],
+            catch_exceptions=False,
+        )
+    assert result.exit_code == 0
+    assert "Bootstrap failed" in result.output
+
+
+def test_estimate_sensitivity_failure_graceful(cli_runner, mock_corpus, monkeypatch):
+    base = mock_corpus["base"]
+    monkeypatch.setattr(Config, "DEFAULT_CORPUS_DIR", base / "data" / "corpora", raising=False)
+    monkeypatch.setattr(Config, "RESULTS_DIR", base / "results", raising=False)
+    with patch("reducelang.models.unigram.UnigramModel.fit", return_value=None), patch(
+        "reducelang.models.unigram.UnigramModel.evaluate", return_value=1.0
+    ), patch("reducelang.validation.sensitivity.run_ablation_study", side_effect=RuntimeError("fail")):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "estimate",
+                "--model",
+                "unigram",
+                "--lang",
+                mock_corpus["lang"],
+                "--corpus",
+                mock_corpus["corpus"],
+                "--snapshot",
+                mock_corpus["snapshot"],
+                "--sensitivity",
+            ],
+            catch_exceptions=False,
+        )
+    assert result.exit_code == 0
+    assert "Sensitivity analysis failed" in result.output
+
+
+def test_estimate_sensitivity_markdown_output(cli_runner, mock_corpus, monkeypatch):
+    base = mock_corpus["base"]
+    monkeypatch.setattr(Config, "DEFAULT_CORPUS_DIR", base / "data" / "corpora", raising=False)
+    monkeypatch.setattr(Config, "RESULTS_DIR", base / "results", raising=False)
+    with patch("reducelang.models.unigram.UnigramModel.fit", return_value=None), patch(
+        "reducelang.models.unigram.UnigramModel.evaluate", return_value=1.0
+    ), patch("reducelang.validation.sensitivity.run_ablation_study", return_value={
+        "baseline": {"bits_per_char": 1.0, "redundancy": 0.5, "alphabet_name": "English-27", "alphabet_size": 27, "log2_alphabet_size": 4.755},
+        "variants": [],
+    }):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "estimate",
+                "--model",
+                "unigram",
+                "--lang",
+                mock_corpus["lang"],
+                "--corpus",
+                mock_corpus["corpus"],
+                "--snapshot",
+                mock_corpus["snapshot"],
+                "--sensitivity",
+            ],
+            catch_exceptions=False,
+        )
+    assert result.exit_code == 0
+    sens_md = base / "results" / "entropy" / mock_corpus["lang"] / mock_corpus["corpus"] / mock_corpus["snapshot"] / "unigram_order1_sensitivity.md"
+    assert sens_md.exists()
+
+
 def test_estimate_invalid_model(cli_runner):
     """Invalid model choice should be caught by Click."""
 
