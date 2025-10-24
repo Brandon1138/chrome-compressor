@@ -4,7 +4,7 @@
 .PHONY: setup lock test lint format typecheck clean notebook english romanian paper site
 
 setup:
-	uv sync
+	uv sync --locked
 	uv pip install -e .
 	uv python pin 3.12
 
