@@ -85,3 +85,22 @@ def test_is_valid_char():
     assert ENGLISH_ALPHABET.is_valid_char("1") is False
 
 
+def test_normalize_with_punctuation_variant_kept():
+    """When include_punctuation=True, punctuation should be preserved in output."""
+
+    punct_alpha = ENGLISH_ALPHABET.variant(include_punctuation=True)
+    text = "Hello, World! 123"
+    expected = "hello, world!    "  # comma/exclamation kept; digits -> spaces
+    assert punct_alpha.normalize(text) == expected
+    assert "," in punct_alpha.symbols and "!" in punct_alpha.symbols
+
+
+def test_normalize_no_space_drops_nonmembers():
+    """Without space in the alphabet, out-of-set chars should be dropped."""
+
+    no_space = ENGLISH_ALPHABET.variant(include_space=False)
+    text = "Hello, World!"
+    expected = "helloworld"
+    assert no_space.normalize(text) == expected
+
+

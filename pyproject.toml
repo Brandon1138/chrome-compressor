@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12,<3.13"
 license = { text = "MIT" }
 authors = [
-  { name = "Ishmael", email = "brandon.aron38@gmail.com", website: "mikoshi.studio" },
+  { name = "Ishmael", email = "brandon.aron38@gmail.com" },
 ]
 keywords = ["information-theory", "entropy", "shannon", "compression", "nlp"]
 dependencies = [
@@ -35,6 +35,9 @@ docs = [
 
 [project.scripts]
 reducelang = "reducelang.cli:main"
+
+[project.urls]
+Homepage = "https://mikoshi.studio"
 
 [build-system]
 requires = ["hatchling"]

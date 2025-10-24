@@ -125,11 +125,12 @@ class Alphabet:
         """Return a new Alphabet with modified inclusion flags and symbols.
 
         Recomputes symbols by starting from the base letters a-z (+ diacritics
-        if requested) and optionally space.
+        if requested) and optionally space and punctuation.
         """
 
         base_letters = tuple("abcdefghijklmnopqrstuvwxyz")
         ro_diacritics = ("ă", "â", "î", "ș", "ț")
+        punctuation_ascii = tuple(".,;:!?-\"'()[]{}")
 
         new_include_space = self.include_space if include_space is None else include_space
         new_include_punct = (
@@ -144,8 +145,8 @@ class Alphabet:
             symbols.extend(ro_diacritics)
         if new_include_space:
             symbols.append(" ")
-        # Punctuation variants are not explicitly enumerated in this phase; they
-        # would be added here if enabled.
+        if new_include_punct:
+            symbols.extend(punctuation_ascii)
 
         return Alphabet(
             symbols=tuple(symbols),

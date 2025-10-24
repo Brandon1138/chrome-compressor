@@ -32,7 +32,7 @@ References include Shannon (1951), Huffman (1952), and Cover & Thomas. We verify
    # or
    uv sync && uv pip install -e .
    ```
-4. Verify the installation (CLI scaffold to be added in later phases):
+4. Verify the installation:
    ```bash
    uv run reducelang --version
    ```

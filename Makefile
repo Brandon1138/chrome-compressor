@@ -24,7 +24,7 @@ typecheck:
 	uv run mypy reducelang/
 
 clean:
-	rm -rf build/ dist/ *.egg-info .pytest_cache/ .mypy_cache/ .ruff_cache/ __pycache__/ */__pycache__/
+	uv run python -c "import os,shutil,glob; [shutil.rmtree(p, ignore_errors=True) for p in ['build','dist','.pytest_cache','.mypy_cache','.ruff_cache'] if os.path.isdir(p)]; [shutil.rmtree(d, ignore_errors=True) for d in glob.glob('**/__pycache__', recursive=True)]; [shutil.rmtree(egg, ignore_errors=True) for egg in glob.glob('*.egg-info')]; print('Cleaned artifacts.')"
 
 notebook:
 	uv run jupyter notebook notebooks/
