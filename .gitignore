@@ -42,9 +42,13 @@ env/
 
 # Data and outputs
 data/
-results/
 .cache/
 output/
+
+# Results (reproducible artifacts)
+results/entropy/
+results/models/
+!results/entropy/**/sample_*.json
 
 # Corpus data (exclude raw and processed text; keep datacards)
 data/corpora/*/raw/

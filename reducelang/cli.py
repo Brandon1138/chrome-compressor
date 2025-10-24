@@ -16,8 +16,10 @@ def cli() -> None:
 
 # Register subcommands
 from reducelang.commands.prep import prep  # noqa: E402
+from reducelang.commands.estimate import estimate  # noqa: E402
 
 cli.add_command(prep)
+cli.add_command(estimate)
 
 
 def main() -> NoReturn:

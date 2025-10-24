@@ -11,7 +11,7 @@ References include Shannon (1951), Huffman (1952), and Cover & Thomas. We verify
 
 ## Features
 - Alphabet definitions for English (M=27) and Romanian (M=32) with variants (space, punctuation, diacritics)
-- Entropy estimation: unigram, n-gram (Kneser-Ney), PPM (PPM-C/D), Huffman baseline
+- Entropy estimation: unigram (empirical frequencies), n-gram (Kneser-Ney smoothing)
 - Redundancy computation: R = 1 - H / log₂M
 - Statistical validation: block bootstrap CIs, corpus sensitivity, ablations
 - Reproducible: deterministic seeds, `uv.lock`, SHA256-verified corpora
@@ -85,9 +85,11 @@ reducelang prep --lang en --corpus gutenberg
 ```
 
 This requires `nltk` and the `gutenberg` dataset (`nltk.download('gutenberg')`).
-- (Future) Estimate entropy:
+- Estimate entropy:
   ```bash
-  reducelang estimate --model ppm --order 8 --lang en
+  reducelang estimate --model unigram --lang en --corpus text8
+  reducelang estimate --model ngram --order 5 --lang ro --corpus opus
+  make estimate-en-ngram
   ```
 - (Future) Full English pipeline:
   ```bash
@@ -112,9 +114,13 @@ chrome-compressor/
 │   │   ├── preprocessor.py  # Normalization pipeline
 │   │   └── datacard.py      # JSON metadata generation
 │   ├── commands/        # CLI subcommands
-│   │   └── prep.py          # Corpus preparation command
+│   │   ├── prep.py          # Corpus preparation command
+│   │   └── estimate.py      # Entropy estimation
 │   └── utils.py         # Shared utilities (SHA256, file ops)
-│   ├── models/          # (Phase 3-4) Entropy models (n-gram, PPM, Huffman)
+│   ├── models/          # Entropy estimation models
+│   │   ├── base.py          # Abstract LanguageModel base class
+│   │   ├── unigram.py       # Empirical character frequencies
+│   │   └── ngram.py         # Kneser-Ney n-gram models (NLTK)
 │   ├── validation/      # (Phase 6) Bootstrap, sensitivity analysis
 │   └── proofs/          # (Phase 7) LaTeX/Markdown proof generation
 ├── notebooks/           # Jupyter exploration
@@ -141,6 +147,50 @@ chrome-compressor/
 - Random seeds fixed in `reducelang/config.py`
 - Corpora verified via SHA256 (first run computes and records)
 - Experiments runnable via `make` targets
+
+## Dependencies
+- `nltk`: N-gram language models with Kneser-Ney smoothing
+
+## Entropy Estimation
+- Unigram model: Empirical character frequencies with Laplace smoothing; computes H₁ = -Σ p(c) log₂ p(c).
+- N-gram model: Kneser-Ney interpolated smoothing via NLTK; captures character dependencies (orders 2-8 recommended, enforced).
+- Train/test split: 80/20 split (configurable via `--test-split`) for cross-entropy measurement.
+- Results: JSON in `results/entropy/{lang}/{corpus}/{snapshot}/` with bits/char, metadata, and model paths. Models serialized to `results/models/` (pickle).
+
+### Results Directory Layout
+```
+results/
+├── entropy/
+│   ├── en/
+│   │   └── text8/
+│   │       └── 2025-10-01/
+│   │           ├── unigram_order1.json
+│   │           ├── ngram_order3.json
+│   │           └── ngram_order5.json
+└── models/
+    ├── en/
+    │   └── text8/
+    │       └── 2025-10-01/
+    │           ├── unigram_order1.pkl
+    │           └── ngram_order3.pkl
+```
+
+## Examples
+```bash
+# 1. Download and preprocess corpus
+reducelang prep --lang en --corpus text8
+
+# 2. Estimate entropy with unigram
+reducelang estimate --model unigram --lang en --corpus text8
+
+# 3. Estimate entropy with n-grams (orders 2-8)
+for order in 2 3 5 8; do
+  reducelang estimate --model ngram --order $order --lang en --corpus text8
+done
+
+# 4. View results
+cat results/entropy/en/text8/2025-10-01/ngram_order5.json
+```
 
 ## References
 1. Shannon, C. E. (1951). Prediction and entropy of printed English.
