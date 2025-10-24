@@ -7,6 +7,8 @@ from click.testing import CliRunner
 
 from reducelang.cli import cli
 from reducelang.config import Config
+from reducelang.models import PPMModel
+from reducelang.coding import verify_codelength as _verify
 
 
 @pytest.fixture
@@ -104,6 +106,238 @@ def test_estimate_ngram_success(cli_runner, mock_corpus, monkeypatch):
     assert out_file.exists()
     data = json.loads(out_file.read_text(encoding="utf-8"))
     assert data["bits_per_char"] == 0.9876
+
+
+def test_estimate_ppm_success(cli_runner, mock_corpus, monkeypatch):
+    """PPM estimation should produce results JSON and success output."""
+
+    base = mock_corpus["base"]
+    monkeypatch.setattr(Config, "DEFAULT_CORPUS_DIR", base / "data" / "corpora", raising=False)
+    monkeypatch.setattr(Config, "RESULTS_DIR", base / "results", raising=False)
+    with patch("reducelang.models.ppm.PPMModel.fit", return_value=None), patch(
+        "reducelang.models.ppm.PPMModel.evaluate", return_value=0.7654
+    ):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "estimate",
+                "--model",
+                "ppm",
+                "--order",
+                "5",
+                "--lang",
+                mock_corpus["lang"],
+                "--corpus",
+                mock_corpus["corpus"],
+                "--snapshot",
+                mock_corpus["snapshot"],
+            ],
+            catch_exceptions=False,
+        )
+    assert result.exit_code == 0, result.output
+    out_file = base / "results" / "entropy" / mock_corpus["lang"] / mock_corpus["corpus"] / mock_corpus["snapshot"] / "ppm_order5.json"
+    assert out_file.exists()
+    data = json.loads(out_file.read_text(encoding="utf-8"))
+    assert data["bits_per_char"] == 0.7654
+    assert data.get("escape_method", "A") in {"A", "B", "C", "D"}
+
+
+def test_estimate_ppm_with_verification(cli_runner, mock_corpus, monkeypatch):
+    """PPM with verification flag should print verification details."""
+
+    base = mock_corpus["base"]
+    monkeypatch.setattr(Config, "DEFAULT_CORPUS_DIR", base / "data" / "corpora", raising=False)
+    monkeypatch.setattr(Config, "RESULTS_DIR", base / "results", raising=False)
+    with patch("reducelang.models.ppm.PPMModel.fit", return_value=None), patch(
+        "reducelang.models.ppm.PPMModel.evaluate", return_value=0.7654
+    ), patch("reducelang.coding.arithmetic.verify_codelength", return_value={
+        "cross_entropy_bpc": 0.7654,
+        "codelength_bpc": 0.7654,
+        "delta_bpc": 0.0,
+        "matches": True,
+    }):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "estimate",
+                "--model",
+                "ppm",
+                "--order",
+                "5",
+                "--lang",
+                mock_corpus["lang"],
+                "--corpus",
+                mock_corpus["corpus"],
+                "--snapshot",
+                mock_corpus["snapshot"],
+                "--verify-codelength",
+            ],
+            catch_exceptions=False,
+        )
+    assert result.exit_code == 0, result.output
+    assert "Verifying codelength" in result.output
+
+
+def test_estimate_ppm_escape_method(cli_runner, mock_corpus, monkeypatch):
+    base = mock_corpus["base"]
+    monkeypatch.setattr(Config, "DEFAULT_CORPUS_DIR", base / "data" / "corpora", raising=False)
+    monkeypatch.setattr(Config, "RESULTS_DIR", base / "results", raising=False)
+    with patch("reducelang.models.ppm.PPMModel.fit", return_value=None), patch(
+        "reducelang.models.ppm.PPMModel.evaluate", return_value=0.5
+    ):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "estimate",
+                "--model",
+                "ppm",
+                "--order",
+                "5",
+                "--escape-method",
+                "D",
+                "--lang",
+                mock_corpus["lang"],
+                "--corpus",
+                mock_corpus["corpus"],
+                "--snapshot",
+                mock_corpus["snapshot"],
+            ],
+            catch_exceptions=False,
+        )
+    assert result.exit_code == 0, result.output
+    out_file = base / "results" / "entropy" / mock_corpus["lang"] / mock_corpus["corpus"] / mock_corpus["snapshot"] / "ppm_order5.json"
+    data = json.loads(out_file.read_text(encoding="utf-8"))
+    # Effective method is A, but requested is preserved for transparency
+    assert data.get("escape_method") == "A"
+    assert data.get("escape_method_requested") == "D"
+
+
+def test_estimate_ppm_update_exclusion(cli_runner, mock_corpus, monkeypatch):
+    base = mock_corpus["base"]
+    monkeypatch.setattr(Config, "DEFAULT_CORPUS_DIR", base / "data" / "corpora", raising=False)
+    monkeypatch.setattr(Config, "RESULTS_DIR", base / "results", raising=False)
+    with patch("reducelang.models.ppm.PPMModel.fit", return_value=None), patch(
+        "reducelang.models.ppm.PPMModel.evaluate", return_value=0.5
+    ):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "estimate",
+                "--model",
+                "ppm",
+                "--order",
+                "5",
+                "--update-exclusion",
+                "--lang",
+                mock_corpus["lang"],
+                "--corpus",
+                mock_corpus["corpus"],
+                "--snapshot",
+                mock_corpus["snapshot"],
+            ],
+            catch_exceptions=False,
+        )
+    assert result.exit_code == 0, result.output
+    out_file = base / "results" / "entropy" / mock_corpus["lang"] / mock_corpus["corpus"] / mock_corpus["snapshot"] / "ppm_order5.json"
+    data = json.loads(out_file.read_text(encoding="utf-8"))
+    assert data.get("update_exclusion") is True
+
+
+def test_estimate_ppm_invalid_depth(cli_runner, mock_corpus, monkeypatch):
+    base = mock_corpus["base"]
+    monkeypatch.setattr(Config, "DEFAULT_CORPUS_DIR", base / "data" / "corpora", raising=False)
+    result = cli_runner.invoke(
+        cli,
+        [
+            "estimate",
+            "--model",
+            "ppm",
+            "--order",
+            "0",
+            "--lang",
+            mock_corpus["lang"],
+            "--corpus",
+            mock_corpus["corpus"],
+            "--snapshot",
+            mock_corpus["snapshot"],
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code != 0
+
+
+def test_estimate_ppm_depth_warning(cli_runner, mock_corpus, monkeypatch):
+    base = mock_corpus["base"]
+    monkeypatch.setattr(Config, "DEFAULT_CORPUS_DIR", base / "data" / "corpora", raising=False)
+    with patch("reducelang.models.ppm.PPMModel.fit", return_value=None), patch(
+        "reducelang.models.ppm.PPMModel.evaluate", return_value=1.0
+    ):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "estimate",
+                "--model",
+                "ppm",
+                "--order",
+                "1",
+                "--lang",
+                mock_corpus["lang"],
+                "--corpus",
+                mock_corpus["corpus"],
+                "--snapshot",
+                mock_corpus["snapshot"],
+            ],
+            catch_exceptions=False,
+        )
+    assert result.exit_code == 0
+    assert "Warning: PPM with depth < 2" in result.output
+
+
+def test_estimate_ppm_output_structure(cli_runner, mock_corpus, monkeypatch):
+    base = mock_corpus["base"]
+    monkeypatch.setattr(Config, "DEFAULT_CORPUS_DIR", base / "data" / "corpora", raising=False)
+    monkeypatch.setattr(Config, "RESULTS_DIR", base / "results", raising=False)
+    with patch("reducelang.models.ppm.PPMModel.fit", return_value=None), patch(
+        "reducelang.models.ppm.PPMModel.evaluate", return_value=0.5
+    ), patch("reducelang.coding.arithmetic.verify_codelength", return_value={
+        "cross_entropy_bpc": 0.5,
+        "codelength_bpc": 0.5,
+        "delta_bpc": 0.0,
+        "matches": True,
+    }):
+        result = cli_runner.invoke(
+            cli,
+            [
+                "estimate",
+                "--model",
+                "ppm",
+                "--order",
+                "5",
+                "--lang",
+                mock_corpus["lang"],
+                "--corpus",
+                mock_corpus["corpus"],
+                "--snapshot",
+                mock_corpus["snapshot"],
+                "--verify-codelength",
+            ],
+            catch_exceptions=False,
+        )
+    assert result.exit_code == 0, result.output
+    out_file = base / "results" / "entropy" / mock_corpus["lang"] / mock_corpus["corpus"] / mock_corpus["snapshot"] / "ppm_order5.json"
+    data = json.loads(out_file.read_text(encoding="utf-8"))
+    for k in [
+        "model_choice",
+        "order",
+        "language",
+        "corpus",
+        "snapshot",
+        "bits_per_char",
+        "escape_method",
+        "update_exclusion",
+    ]:
+        assert k in data
+    assert "codelength_verification" in data
 
 
 def test_estimate_force_flag(cli_runner, mock_corpus, monkeypatch):

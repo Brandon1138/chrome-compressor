@@ -189,3 +189,22 @@ def _romanian_without_diacritics() -> Alphabet:
 ROMANIAN_NO_DIACRITICS = _romanian_without_diacritics()
 
 
+def get_alphabet_by_name(name: str) -> Alphabet:
+    """Return a predefined `Alphabet` by its `name`.
+
+    Raises a `ValueError` with available options if the name is unknown.
+    """
+
+    registry: dict[str, Alphabet] = {
+        ENGLISH_ALPHABET.name: ENGLISH_ALPHABET,          # "English-27"
+        ENGLISH_NO_SPACE.name: ENGLISH_NO_SPACE,          # "English-26"
+        ROMANIAN_ALPHABET.name: ROMANIAN_ALPHABET,        # "Romanian-32"
+        ROMANIAN_NO_DIACRITICS.name: ROMANIAN_NO_DIACRITICS,  # "Romanian-27"
+    }
+
+    try:
+        return registry[name]
+    except KeyError as exc:
+        options = ", ".join(sorted(registry.keys()))
+        raise ValueError(f"Unknown alphabet name: {name!r}. Available: {options}") from exc
+

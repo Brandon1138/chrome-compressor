@@ -1,18 +1,20 @@
-"""Train and evaluate language models for entropy estimation.
+"""CLI command for Huffman coding and redundancy comparison.
+
+Train a Huffman model on a processed corpus, evaluate cross-entropy
+in bits/char, save results, and optionally generate comparison tables
+across models (unigram, n-gram, PPM, Huffman).
 
 Examples
 --------
-  reducelang estimate --model unigram --lang en --corpus text8
-  reducelang estimate --model ngram --order 5 --lang ro --corpus opus
-  reducelang estimate --model ngram --order 8 --lang en --corpus text8 --force
+  reducelang huffman --lang en --corpus text8
+  reducelang huffman --lang ro --corpus opus --compare
+  reducelang huffman --lang en --corpus text8 --compare --compare-format markdown
 """
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any
-from itertools import chain
 import json
 
 import click
@@ -20,41 +22,12 @@ import click
 from reducelang.config import Config
 from reducelang.alphabet import ENGLISH_ALPHABET, ROMANIAN_ALPHABET
 from reducelang.corpus.datacard import load_datacard
-from reducelang.models import UnigramModel, NGramModel, PPMModel
-from reducelang.coding import verify_codelength
+from reducelang.huffman import HuffmanModel
+from reducelang.redundancy import compute_redundancy, generate_comparison_table
 from reducelang.utils import ensure_dir
 
 
-@click.command(name="estimate")
-@click.option(
-    "model",
-    "--model",
-    type=click.Choice(["unigram", "ngram", "ppm"], case_sensitive=False),
-    required=True,
-    help="Model type (unigram, ngram with Kneser-Ney, or ppm)",
-)
-@click.option(
-    "order",
-    "--order",
-    type=int,
-    default=Config.DEFAULT_NGRAM_ORDER,
-    show_default=True,
-    help="Model order: 1 for unigram, 2-8 for ngram, depth for ppm",
-)
-@click.option(
-    "escape_method",
-    "--escape-method",
-    type=click.Choice(["A", "B", "C", "D"], case_sensitive=False),
-    default="A",
-    show_default=True,
-    help="PPM escape method (A=default, B/C/D=experimental)",
-)
-@click.option(
-    "update_exclusion",
-    "--update-exclusion",
-    is_flag=True,
-    help="Use update exclusion (PPM-C style)",
-)
+@click.command(name="huffman")
 @click.option(
     "lang",
     "--lang",
@@ -99,54 +72,33 @@ from reducelang.utils import ensure_dir
     help="Re-train even if results exist",
 )
 @click.option(
-    "verify_codelength_flag",
-    "--verify-codelength",
+    "compare",
+    "--compare",
     is_flag=True,
-    help="Verify that codelength matches cross-entropy (PPM only)",
+    help="Generate comparison table with all models (unigram, n-gram, PPM, Huffman)",
 )
-def estimate(
-    model: str,
-    order: int,
+@click.option(
+    "compare_format",
+    "--compare-format",
+    type=click.Choice(["table", "json", "csv", "markdown"], case_sensitive=False),
+    default="table",
+    show_default=True,
+    help="Comparison table format",
+)
+def huffman(
     lang: str,
     corpus: str,
     snapshot: str,
     test_split: float,
     output: Path | None,
     force: bool,
-    escape_method: str,
-    update_exclusion: bool,
-    verify_codelength_flag: bool,
+    compare: bool,
+    compare_format: str,
 ) -> None:
-    """Train and evaluate language models for entropy estimation."""
+    """Train Huffman model and optionally generate comparison tables."""
 
     try:
-        # Normalize choices
-        model = model.lower()
         lang = lang.lower()
-
-        # Validate inputs
-        if model == "unigram" and order != 1:
-            click.secho("Warning: unigram forces order=1; overriding.", fg="yellow")
-            order = 1
-        if model == "ngram" and not (2 <= order <= 8):
-            raise click.ClickException("For ngram, --order must be between 2 and 8 inclusive.")
-        if model == "ppm":
-            if not (1 <= order <= 12):
-                raise click.ClickException(
-                    "For ppm, --order (depth) must be between 1 and 12 inclusive."
-                )
-            if order < 2:
-                click.secho(
-                    "Warning: PPM with depth < 2 is very shallow; consider --model unigram",
-                    fg="yellow",
-                )
-            # Warn and normalize unsupported escape methods to A at runtime
-            if escape_method.upper() != "A":
-                click.secho(
-                    f"Warning: PPM escape method {escape_method.upper()} is not implemented; using A.",
-                    fg="yellow",
-                )
-                # Keep user's requested method so the model can record it; model enforces A
         if not (0.0 < test_split < 1.0):
             raise click.ClickException("--test-split must be between 0 and 1 (exclusive).")
 
@@ -172,7 +124,7 @@ def estimate(
                 f"Alphabet mismatch: datacard has {alphabet_name}, code uses {alphabet.name}"
             )
 
-        # Train/test split (source-stratified)
+        # Stratified train/test split (same logic style as estimate)
         def _segments_from_datacard() -> list[str]:
             segments: list[str] = []
             sources = datacard.get("sources") or datacard.get("documents")
@@ -202,19 +154,15 @@ def estimate(
                                 segments.append(p.read_text(encoding="utf-8"))
                                 continue
                 except Exception:
-                    # Skip malformed entries
                     continue
             return segments
 
         def _segments_from_processed() -> list[str]:
             candidates: list[Path] = []
-            # processed/{corpus}_*.txt
             candidates.extend(sorted(processed_dir.glob(f"{corpus}_*.txt")))
-            # processed/{corpus}/**/*.txt
             subdir = processed_dir / corpus
             if subdir.exists() and subdir.is_dir():
                 candidates.extend(sorted(subdir.rglob("*.txt")))
-            # Exclude the main concatenated file if present
             candidates = [p for p in candidates if p.name != f"{corpus}.txt"]
             segments: list[str] = []
             for p in candidates:
@@ -228,7 +176,6 @@ def estimate(
         if not raw_segments:
             raw_segments = _segments_from_processed()
         if not raw_segments:
-            # Fallback to contiguous split if no boundaries found
             raw_segments = [text]
 
         train_parts: list[str] = []
@@ -237,7 +184,6 @@ def estimate(
             if not seg:
                 continue
             idx = int(len(seg) * (1 - test_split))
-            # Ensure within bounds
             idx = max(0, min(idx, len(seg)))
             train_parts.append(seg[:idx])
             test_parts.append(seg[idx:])
@@ -245,12 +191,9 @@ def estimate(
         train_text = "".join(train_parts)
         test_text = "".join(test_parts)
 
-        # Guard against empty splits
         if len(train_text) == 0 or len(test_text) == 0:
             raise click.ClickException(
-                "After stratified splitting, one of the splits is empty. "
-                "The corpus may be too small for the chosen --test-split. "
-                "Try decreasing --test-split or using a larger corpus."
+                "After stratified splitting, one of the splits is empty. The corpus may be too small for the chosen --test-split. Try decreasing --test-split or using a larger corpus."
             )
 
         click.echo(f"Sources: {len(raw_segments)} | Train: {len(train_text)} chars, Test: {len(test_text)} chars")
@@ -258,7 +201,7 @@ def estimate(
         # Output path handling
         if output is None:
             output_dir = Config.RESULTS_DIR / "entropy" / lang / corpus / snapshot
-            output_file = output_dir / f"{model}_order{order}.json"
+            output_file = output_dir / "huffman_order1.json"
         else:
             output_dir = output.parent
             output_file = output
@@ -270,65 +213,48 @@ def estimate(
                 click.echo(json.dumps(parsed, indent=2))
             except Exception:
                 pass
+            # Optionally generate comparison table
+            if compare:
+                click.echo("\nGenerating comparison table...")
+                table = generate_comparison_table(lang, corpus, snapshot, output_format=compare_format.lower())
+                if compare_format.lower() in {"table", "markdown"}:
+                    click.echo("\n" + (table if isinstance(table, str) else json.dumps(table, indent=2)))
+                else:
+                    comparison_file = output_dir / f"comparison.{compare_format.lower()}"
+                    if isinstance(table, dict):
+                        comparison_file.write_text(json.dumps(table, indent=2), encoding="utf-8")
+                    else:
+                        comparison_file.write_text(str(table), encoding="utf-8")
+                    click.echo(f"Comparison table saved: {comparison_file}")
             return
 
-        # Instantiate model
-        if model == "unigram":
-            lm = UnigramModel(alphabet)
-        elif model == "ngram":
-            # Validate order range for n-gram (2-8)
-            if not (2 <= order <= 8):
-                raise click.ClickException("For ngram, --order must be between 2 and 8 inclusive.")
-            lm = NGramModel(alphabet, order=order)
-        elif model == "ppm":
-            if not (1 <= order <= 12):
-                raise click.ClickException(
-                    "For ppm, --order (depth) must be between 1 and 12 inclusive."
-                )
-            lm = PPMModel(
-                alphabet,
-                depth=order,
-                escape_method=escape_method.upper(),
-                update_exclusion=update_exclusion,
-            )
-        else:
-            raise click.ClickException(f"Unsupported model: {model}")
-
-        click.echo(f"Training {model} (order={order}) on {lang}/{corpus}...")
+        # Train Huffman
+        lm = HuffmanModel(alphabet)
+        click.echo(f"Training Huffman on {lang}/{corpus}...")
         lm.fit(train_text)
 
+        # Evaluate
         click.echo("Evaluating on test set...")
         bits_per_char = lm.evaluate(test_text)
-        click.echo(f"Cross-entropy: {bits_per_char:.4f} bits/char")
+        click.echo(f"Average code length: {bits_per_char:.4f} bits/char")
 
-        # Codelength verification (PPM only, optional)
-        codelength_verification: dict[str, Any] | None = None
-        if model == "ppm" and verify_codelength_flag:
-            click.echo("Verifying codelength matches cross-entropy...")
-            try:
-                codelength_verification = verify_codelength(test_text, lm, tolerance=1e-3)
-                click.echo(f"  Cross-entropy: {codelength_verification['cross_entropy_bpc']:.6f} bpc")
-                click.echo(f"  Codelength:    {codelength_verification['codelength_bpc']:.6f} bpc")
-                click.echo(f"  Delta:         {codelength_verification['delta_bpc']:.6f} bpc")
-                if codelength_verification.get("matches"):
-                    click.secho("  ✓ Verification passed (delta < 0.001 bpc)", fg="green")
-                else:
-                    click.secho("  ✗ Verification failed (delta >= 0.001 bpc)", fg="yellow")
-            except Exception as _e:
-                click.secho("  ⚠ Verification failed due to an unexpected error", fg="yellow")
+        # Redundancy
+        redundancy = compute_redundancy(bits_per_char, alphabet.log2_size)
+        click.echo(f"Redundancy: {redundancy:.2%}")
+        click.echo(f"Maximum entropy (log₂M): {alphabet.log2_size:.4f} bits/char")
 
         # Save model
         model_dir = Config.RESULTS_DIR / "models" / lang / corpus / snapshot
-        model_file = model_dir / f"{model}_order{order}.pkl"
+        model_file = model_dir / "huffman_order1.pkl"
         ensure_dir(model_dir)
         lm.save(model_file)
         click.echo(f"Model saved: {model_file}")
 
-        # Results JSON
+        # Save results JSON
         ensure_dir(output_dir)
-        results: dict[str, Any] = {
-            "model_choice": model,
-            "order": order,
+        results = {
+            "model_choice": "huffman",
+            "order": 1,
             "language": lang,
             "corpus": corpus,
             "snapshot": snapshot,
@@ -336,6 +262,7 @@ def estimate(
             "alphabet_size": alphabet.size,
             "log2_alphabet_size": alphabet.log2_size,
             "bits_per_char": bits_per_char,
+            "redundancy": redundancy,
             "train_chars": len(train_text),
             "test_chars": len(test_text),
             "test_split": test_split,
@@ -346,29 +273,37 @@ def estimate(
         }
         results.update(lm.to_dict())
 
-        # Include PPM-specific metadata
-        if model == "ppm":
-            # Use model metadata to reflect effective escape method and requested one
-            results["escape_method"] = getattr(lm, "escape_method", "A")
-            requested = getattr(lm, "escape_method_requested", results.get("escape_method", "A"))
-            results["escape_method_requested"] = requested
-            results["update_exclusion"] = getattr(lm, "update_exclusion", update_exclusion)
-            if codelength_verification is not None:
-                results["codelength_verification"] = codelength_verification
-        
-
         with output_file.open("w", encoding="utf-8") as f:
             json.dump(results, f, indent=2, ensure_ascii=False)
         click.echo(f"Results saved: {output_file}")
 
+        # Optional comparison table
+        if compare:
+            click.echo("\nGenerating comparison table...")
+            table = generate_comparison_table(lang, corpus, snapshot, output_format=compare_format.lower())
+            if compare_format.lower() in {"table", "markdown"}:
+                click.echo("\n" + (table if isinstance(table, str) else json.dumps(table, indent=2)))
+            else:
+                comparison_file = output_dir / f"comparison.{compare_format.lower()}"
+                if isinstance(table, dict):
+                    comparison_file.write_text(json.dumps(table, indent=2), encoding="utf-8")
+                else:
+                    comparison_file.write_text(str(table), encoding="utf-8")
+                click.echo(f"Comparison table saved: {comparison_file}")
+
         click.secho(
-            f"OK: {model} (order={order}) on {lang}/{corpus}: {bits_per_char:.4f} bits/char",
+            f"OK: Huffman on {lang}/{corpus}: {bits_per_char:.4f} bits/char, {redundancy:.2%} redundancy",
             fg="green",
         )
+        if compare:
+            click.echo("\nComparison shows Huffman (single-char) vs. context models (n-gram, PPM):")
+            click.echo("  - Huffman captures ~10-15% redundancy from character frequencies")
+            click.echo("  - N-gram/PPM capture ~60-75% redundancy from dependencies")
     except click.ClickException:
         raise
     except Exception as e:
         click.secho(f"Error: {e}", fg="red", err=True)
         raise SystemExit(1)
+
 
 
