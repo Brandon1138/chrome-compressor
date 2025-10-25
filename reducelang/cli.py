@@ -18,10 +18,12 @@ def cli() -> None:
 from reducelang.commands.prep import prep  # noqa: E402
 from reducelang.commands.estimate import estimate  # noqa: E402
 from reducelang.commands.huffman import huffman  # noqa: E402
+from reducelang.commands.report import report  # noqa: E402
 
 cli.add_command(prep)
 cli.add_command(estimate)
 cli.add_command(huffman)
+cli.add_command(report)
 
 
 def main() -> NoReturn:

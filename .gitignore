@@ -66,6 +66,13 @@ data/corpora/*/processed/*.txt
 *.fdb_latexmk
 *.fls
 paper/*.pdf
+paper/*.tex
+paper/figs/*.pdf
+paper/figs/*.png
+!paper/references.bib
+
+# Site outputs
+site/
 
 # OS files
 .DS_Store

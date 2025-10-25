@@ -21,6 +21,9 @@ References include Shannon (1951), Huffman (1952), and Cover & Thomas. We verify
 - Reproducible: deterministic seeds, `uv.lock`, SHA256-verified corpora
 - Dual interface: CLI (`reducelang`) and Jupyter notebooks
 - Academic output: LaTeX/PDF proofs, Markdown/MathJax site
+- Proof generation: LaTeX/PDF and Markdown/HTML with theorem blocks, citations, and figures
+- Template-driven: Jinja2 templates for academic-quality proofs following Shannon's framework
+- Automated compilation: pdflatex/latexmk for PDF, Quarto for static sites
 - Automated corpus download: Wikipedia (EN/RO), Brown, Gutenberg, text8, OPUS, Europarl
 - Format handlers: Wikipedia XML, NLTK, zip, gzip, tar.gz, parallel corpora
 - Data cards: JSON metadata for reproducibility (source, license, hashes, dates)
@@ -115,13 +118,36 @@ This requires `nltk` and the `gutenberg` dataset (`nltk.download('gutenberg')`).
   make estimate-en-ppm
   make verify-ppm
   ```
-- (Future) Full English pipeline:
+#### Reporting and Proof Generation
+
+- Generate PDF proof (English) to `paper/` with figures in `paper/figs`:
+  ```bash
+  reducelang report --lang en --format pdf --out paper/ --figures-dir paper/figs
+  ```
+- Choose LaTeX style: `article` (default), `acm`, or `arxiv`:
+  ```bash
+  # ACM acmart style (non-ACM, sigconf)
+  reducelang report --lang en --format pdf --out paper/ --figures-dir paper/figs --latex-style acm
+
+  # arXiv-friendly article style (geometry + natbib)
+  reducelang report --lang en --format pdf --out paper/ --figures-dir paper/figs --latex-style arxiv
+  ```
+  If a requested style template is missing, the renderer falls back to the default article template.
+- Generate HTML site (English). Figures will be referenced relatively; if needed they are copied to `site/figs`:
+  ```bash
+  reducelang report --lang en --format html --out site/ --figures-dir paper/figs
+  ```
+- Generate all outputs for both languages:
+  ```bash
+  reducelang report --lang both --format both
+  ```
+- Make targets:
   ```bash
   make english
-  ```
-- (Future) Build paper:
-  ```bash
+  make romanian
   make paper
+  make site
+  make report-all
   ```
 
 ## Project Structure
@@ -154,7 +180,15 @@ chrome-compressor/
 │   ├── validation/      # Statistical validation
 │   │   ├── bootstrap.py     # Block bootstrap for confidence intervals
 │   │   └── sensitivity.py   # Ablation studies for alphabet variants
-│   └── proofs/          # (Phase 7) LaTeX/Markdown proof generation
+│   └── proofs/          # Proof generation
+│       ├── generator.py     # Load results, build context
+│       ├── renderer.py      # Render templates, compile outputs
+│       └── templates/       # Jinja2 templates (LaTeX, Markdown)
+│           ├── latex/       # ACM/arXiv style templates
+│           └── markdown/    # Quarto-compatible templates
+│   ├── report.py        # Orchestration: load → render → compile
+│   ├── commands/
+│   │   └── report.py    # CLI command for proof generation
 ├── notebooks/           # Jupyter exploration
 ├── tests/               # Pytest unit tests
 ├── paper/               # LaTeX source and figures
@@ -182,6 +216,10 @@ chrome-compressor/
 
 ## Dependencies
 - `nltk`: N-gram language models with Kneser-Ney smoothing
+ - `jinja2`: Template rendering
+ - `matplotlib`: Figure generation
+ - `seaborn`: Optional, for prettier plots
+ - External tools (optional): `pdflatex`/`latexmk` for PDF, `quarto` for HTML
 
 ## Entropy Estimation
 - Unigram model: Empirical character frequencies with Laplace smoothing; computes H₁ = -Σ p(c) log₂ p(c).
@@ -271,6 +309,46 @@ cat results/entropy/en/text8/2025-10-01/ppm_order8.json
 
 # 7. Validation via Makefile
 make validate-all
+
+# 8. Generate PDF proof
+reducelang report --lang en --format pdf
+
+# 9. Generate HTML site
+reducelang report --lang en --format html --out site/
+```
+## Proof Generation
+
+Purpose: Generate publication-ready proofs from experimental results, with theorem blocks, citations, and figures.
+
+Templates: LaTeX (ACM/arXiv style) and Markdown (Quarto-compatible with MathJax).
+
+Content: Entropy rate definition, redundancy definition, source coding theorem, Shannon's guessing game, finite-order bounds, methodology, results tables, sensitivity analysis.
+
+Figures: Automatically generated comparison plots (entropy vs. order, redundancy comparison).
+
+Compilation: Requires `pdflatex` or `latexmk` for PDF, `quarto` for HTML (graceful fallback if not installed).
+
+Usage: `reducelang report --lang en --format pdf --out paper/ --figures-dir paper/figs`
+
+### Output Structure
+
+```
+paper/
+├── en_redundancy.tex        # LaTeX source (English)
+├── en_redundancy.pdf        # Compiled PDF (English)
+├── ro_redundancy.tex        # LaTeX source (Romanian)
+├── ro_redundancy.pdf        # Compiled PDF (Romanian)
+├── references.bib           # BibTeX references
+└── figs/                    # Generated figures
+    ├── entropy_vs_order_en.pdf
+    ├── entropy_vs_order_en.png
+    ├── redundancy_comparison_en.pdf
+    └── ...
+
+site/
+├── en_redundancy.html       # HTML proof (English)
+├── ro_redundancy.html       # HTML proof (Romanian)
+└── _site/                   # Quarto build artifacts
 ```
 
 ## Redundancy and Comparison Tables

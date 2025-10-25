@@ -1,7 +1,7 @@
 # Makefile for reducelang: Shannon redundancy estimation.
 # Run 'make setup' to initialize the project.
 
-.PHONY: setup lock test lint format typecheck clean notebook english romanian paper site prep-en prep-ro prep-all clean-data estimate-en-unigram estimate-en-ngram estimate-ro-unigram estimate-ro-ngram estimate-all clean-results estimate-en-ppm estimate-ro-ppm estimate-ppm-all verify-ppm huffman-en huffman-ro huffman-all compare-en compare-ro compare-all validate-en validate-ro validate-all bootstrap-en bootstrap-ro sensitivity-en sensitivity-ro
+.PHONY: setup lock test lint format typecheck clean notebook english romanian paper site prep-en prep-ro prep-all clean-data estimate-en-unigram estimate-en-ngram estimate-ro-unigram estimate-ro-ngram estimate-all clean-results estimate-en-ppm estimate-ro-ppm estimate-ppm-all verify-ppm huffman-en huffman-ro huffman-all compare-en compare-ro compare-all validate-en validate-ro validate-all bootstrap-en bootstrap-ro sensitivity-en sensitivity-ro report-all
 
 setup:
 	uv sync --locked
@@ -30,18 +30,29 @@ clean:
 notebook:
 	uv run jupyter notebook notebooks/
 
-# Future targets (placeholders)
-english:
-	@echo "English pipeline (to be implemented in Phase 2)"
+# english: Run full English pipeline (prep, estimate, validate, report)
+english: prep-en estimate-en-unigram estimate-en-ngram estimate-en-ppm huffman-en validate-en
+	uv run reducelang report --lang en --format both --out paper/
 
-romanian:
-	@echo "Romanian pipeline (to be implemented in Phase 2)"
+# romanian: Run full Romanian pipeline (prep, estimate, validate, report)
+romanian: prep-ro estimate-ro-unigram estimate-ro-ngram estimate-ro-ppm huffman-ro validate-ro
+	uv run reducelang report --lang ro --format both --out paper/
 
+# paper: Generate LaTeX/PDF proofs for both languages
 paper:
-	@echo "Paper build (to be implemented in Phase 7)"
+	uv run reducelang report --lang both --format pdf --out paper/
+	@echo "PDF proofs generated in paper/"
+	@echo "Compile with: cd paper && pdflatex en_redundancy.tex && pdflatex ro_redundancy.tex"
 
+# site: Generate HTML static site for both languages
 site:
-	@echo "Documentation site (to be implemented later)"
+	uv run reducelang report --lang both --format html --out site/
+	@echo "Static site generated in site/"
+	@echo "View with: python -m http.server --directory site/"
+
+# report-all: Generate both PDF and HTML for both languages
+report-all:
+	uv run reducelang report --lang both --format both --out paper/
 
 # Corpus preparation targets
 # prep-en: Download and preprocess all English corpora

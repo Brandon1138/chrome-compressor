@@ -26,6 +26,10 @@ __all__ = [
     "compute_bootstrap_ci",
     "run_sensitivity_analysis",
     "run_ablation_study",
+    # Reports
+    "generate_report",
+    "ProofGenerator",
+    "ProofRenderer",
 ]
 
 __version__ = "0.1.0"
@@ -72,6 +76,18 @@ def __getattr__(name: str) -> Any:  # lazy attribute access to avoid heavy deps 
         from reducelang.redundancy import generate_comparison_table as _gct
 
         return _gct
+    if name == "generate_report":
+        from reducelang.report import generate_report as _gr
+
+        return _gr
+    if name == "ProofGenerator":
+        from reducelang.proofs.generator import ProofGenerator as _pg
+
+        return _pg
+    if name == "ProofRenderer":
+        from reducelang.proofs.renderer import ProofRenderer as _pr
+
+        return _pr
     raise AttributeError(f"module 'reducelang' has no attribute {name!r}")
 
 
