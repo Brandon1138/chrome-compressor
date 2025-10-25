@@ -137,13 +137,13 @@ def format_sensitivity_results(results: dict, output_format: str = "table") -> s
             [
                 str(v.get("name", "")),
                 str(int(v.get("alphabet_size", 0))),
-                f"{float(v.get(\"log2_alphabet_size\", 0.0)):.3f}",
-                f"{float(v.get(\"bits_per_char\", 0.0)):.4f}",
-                f"{float(v.get(\"redundancy\", 0.0))*100:.2f}",
-                f"{float(v.get(\"delta_bpc\", 0.0)):+.4f}",
-                f"{float(v.get(\"delta_redundancy\", 0.0))*100:+.2f}",
+                f"{float(v.get('log2_alphabet_size', 0.0)):.3f}",
+                f"{float(v.get('bits_per_char', 0.0)):.4f}",
+                f"{float(v.get('redundancy', 0.0))*100:.2f}",
+                f"{float(v.get('delta_bpc', 0.0)):+.4f}",
+                f"{float(v.get('delta_redundancy', 0.0))*100:+.2f}",
                 (
-                    f"{((float(v.get(\"bits_per_char\", 0.0)) - h_base) / h_base * 100.0):+.2f}"
+                    f"{((float(v.get('bits_per_char', 0.0)) - h_base) / h_base * 100.0):+.2f}"
                     if h_base > 0.0
                     else "+0.00"
                 ),
