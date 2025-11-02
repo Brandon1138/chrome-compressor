@@ -16,7 +16,7 @@ dependencies = [
   "notebook>=7.0",
   "requests>=2.31",
   "tqdm>=4.66",
-  "wikiextractor>=3.0.7",
+  "wikiextractor>=3.0.6",
   "nltk>=3.8",
   "jinja2>=3.1",
   "matplotlib>=3.7",
@@ -39,6 +39,10 @@ docs = [
   "mkdocs>=1.5",
   "mkdocs-material>=9.5",
 ]
+desktop = [
+  "PySide6>=6.6",
+  "PySide6-Addons>=6.6",
+]
 
 [project.scripts]
 reducelang = "reducelang.cli:main"
@@ -50,9 +54,7 @@ Homepage = "https://mikoshi.studio"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.uv]
-python-version = "3.12"
-dev-dependencies = []
+
 
 [tool.ruff]
 line-length = 100

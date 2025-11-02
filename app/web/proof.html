@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Proof Preview</title>
+    <link rel="stylesheet" href="../assets/katex.min.css">
+    <script src="../assets/marked.min.js"></script>
+    <script src="../assets/katex.min.js"></script>
+    <script src="../assets/auto-render.min.js"></script>
+    <style>
+      html, body { height: 100%; }
+      body { background: #0f0f0f; color: #ddd; margin: 0; font-family: system-ui, sans-serif; transition: background 0.2s ease; }
+      #content { padding: 16px; max-width: 1100px; margin: 0 auto; }
+      a { color: #6ab0ff; }
+      code, pre { background: #1a1a1a; color: #ddd; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #333; padding: 6px 8px; }
+      th { background: #1a1a1a; }
+      img { max-width: 100%; }
+    </style>
+  </head>
+  <body>
+    <div id="content">Waiting for proof…</div>
+    <script>
+      marked.setOptions({ mangle: false, headerIds: true });
+      function typeset() {
+        renderMathInElement(document.getElementById('content'), {
+          delimiters: [
+            {left: "$$", right: "$$", display: true},
+            {left: "$", right: "$", display: false},
+            {left: "\\(", right: "\\)", display: false},
+            {left: "\\[", right: "\\]", display: true}
+          ]
+        });
+      }
+      window.renderProof = function(markdown) {
+        const html = marked.parse(markdown || '');
+        const el = document.getElementById('content');
+        el.innerHTML = html;
+        typeset();
+      }
+
+      window.setTheme = function(th) {
+        const isLight = th === 'light';
+        document.body.style.background = isLight ? '#ffffff' : '#0f0f0f';
+        document.body.style.color = isLight ? '#222' : '#ddd';
+        // Note: content colors in markdown are mostly inherited; code blocks stay readable via default styles
+      }
+    </script>
+  </body>
+  </html>

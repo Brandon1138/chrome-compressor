@@ -36,6 +36,7 @@ htmlcov/
 venv/
 ENV/
 env/
+.venv.bak-20251102175813/
 
 # Jupyter
 .ipynb_checkpoints/

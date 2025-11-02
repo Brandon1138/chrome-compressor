@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cytoscape View</title>
+    <script src="../assets/cytoscape.min.js"></script>
+    <style>
+      html, body, #graph { height: 100%; width: 100%; margin: 0; }
+      body { background: #0f0f0f; color: #ddd; font-family: system-ui, sans-serif; transition: background 0.2s ease; }
+    </style>
+  </head>
+  <body>
+    <div id="graph"></div>
+    <script>
+      const el = document.getElementById('graph');
+      let cy = cytoscape({
+        container: el,
+        elements: [],
+        style: [
+          { selector: 'node', style: { 'content': 'data(label)', 'background-color': '#4e79a7', 'font-size': 8, 'color': '#eee' } },
+          { selector: 'edge', style: { 'width': 1, 'line-color': '#777', 'target-arrow-color': '#777', 'target-arrow-shape': 'triangle' } }
+        ],
+        layout: { name: 'breadthfirst', directed: true, padding: 10, spacingFactor: 0.9 }
+      });
+
+      window.updateGraph = function(payload) {
+        const nodes = (payload.nodes || []).map(n => ({ data: { id: n.id, label: n.label || n.id } }));
+        const edges = (payload.edges || []).map(e => ({ data: { id: e.id || (e.source+'_'+e.target), source: e.source, target: e.target } }));
+        cy.elements().remove();
+        cy.add(nodes).add(edges);
+        cy.layout({ name: 'breadthfirst', directed: true, padding: 10, spacingFactor: 0.9 }).run();
+      }
+
+      function applyTheme(th) {
+        const isLight = th === 'light';
+        document.body.style.background = isLight ? '#ffffff' : '#0f0f0f';
+        document.body.style.color = isLight ? '#222' : '#ddd';
+        cy.style()
+          .selector('node').style({ 'background-color': '#4e79a7', 'color': isLight ? '#222' : '#eee' })
+          .selector('edge').style({ 'line-color': isLight ? '#aaa' : '#777', 'target-arrow-color': isLight ? '#aaa' : '#777' })
+          .update();
+      }
+
+      window.setTheme = applyTheme;
+    </script>
+  </body>
+  </html>

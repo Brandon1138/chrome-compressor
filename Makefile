@@ -1,7 +1,7 @@
 # Makefile for reducelang: Shannon redundancy estimation.
 # Run 'make setup' to initialize the project.
 
-.PHONY: setup lock test lint format typecheck clean notebook english romanian paper site prep-en prep-ro prep-all clean-data estimate-en-unigram estimate-en-ngram estimate-ro-unigram estimate-ro-ngram estimate-all clean-results estimate-en-ppm estimate-ro-ppm estimate-ppm-all verify-ppm huffman-en huffman-ro huffman-all compare-en compare-ro compare-all validate-en validate-ro validate-all bootstrap-en bootstrap-ro sensitivity-en sensitivity-ro report-all
+.PHONY: setup lock test lint format typecheck clean notebook english romanian paper site prep-en prep-ro prep-all clean-data estimate-en-unigram estimate-en-ngram estimate-ro-unigram estimate-ro-ngram estimate-all clean-results estimate-en-ppm estimate-ro-ppm estimate-ppm-all verify-ppm huffman-en huffman-ro huffman-all compare-en compare-ro compare-all validate-en validate-ro validate-all bootstrap-en bootstrap-ro sensitivity-en sensitivity-ro report-all desktop
 
 setup:
 	uv sync --locked
@@ -29,6 +29,10 @@ clean:
 
 notebook:
 	uv run jupyter notebook notebooks/
+
+# desktop: Run the desktop application (Phase 1)
+desktop:
+	uv run -q python -m app.main
 
 # english: Run full English pipeline (prep, estimate, validate, report)
 english: prep-en estimate-en-unigram estimate-en-ngram estimate-en-ppm huffman-en validate-en

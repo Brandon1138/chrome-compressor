@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ECharts View</title>
+    <!-- Local ECharts asset (Phase 1: will be downloaded into app/assets) -->
+    <script src="../assets/echarts.min.js"></script>
+    <style>
+      html, body, #chart { height: 100%; width: 100%; margin: 0; }
+      body { background: #0f0f0f; color: #ddd; font-family: system-ui, sans-serif; transition: background 0.2s ease; }
+    </style>
+  </head>
+  <body>
+    <div id="chart"></div>
+    <script>
+      const el = document.getElementById('chart');
+      const chart = echarts.init(el, null, {renderer: 'canvas'});
+
+      let theme = 'dark';
+      const baseOption = {
+        title: { text: 'Chart', textStyle: { color: '#ddd' } },
+        tooltip: {},
+        grid: { left: 40, right: 20, top: 40, bottom: 40 },
+        xAxis: { type: 'category', data: [], axisLabel: { color: '#bbb', interval: 0, rotate: 45 } },
+        yAxis: { type: 'value', axisLabel: { color: '#bbb' } },
+        series: [{ name: 'Series', type: 'bar', data: [], itemStyle: { color: '#4e79a7' } }]
+      };
+      chart.setOption(baseOption);
+
+      window.updateChart = function(payload) {
+        const title = payload.title || 'Chart';
+        const x = payload.x || [];
+        const y = payload.y || [];
+        const name = payload.series_name || 'Series';
+        chart.setOption({
+          title: { text: title },
+          xAxis: { data: x },
+          series: [{ name, data: y, type: 'bar' }]
+        });
+        chart.resize();
+      }
+
+      function applyTheme(th) {
+        theme = th === 'light' ? 'light' : 'dark';
+        if (theme === 'dark') {
+          document.body.style.background = '#0f0f0f';
+          document.body.style.color = '#ddd';
+          chart.setOption({
+            title: { textStyle: { color: '#ddd' } },
+            xAxis: { axisLabel: { color: '#bbb' } },
+            yAxis: { axisLabel: { color: '#bbb' } },
+          });
+        } else {
+          document.body.style.background = '#ffffff';
+          document.body.style.color = '#222';
+          chart.setOption({
+            title: { textStyle: { color: '#222' } },
+            xAxis: { axisLabel: { color: '#333' } },
+            yAxis: { axisLabel: { color: '#333' } },
+          });
+        }
+        chart.resize();
+      }
+
+      window.setTheme = applyTheme;
+    </script>
+  </body>
+  </html>
